@@ -1,0 +1,51 @@
+---
+title: "Assignment 2 - Part 1A"
+author: "Fernando Cagua"
+output: 
+  pdf_document: 
+    number_sections: yes
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+library(tidyverse)
+library(modelr)
+library(glmnet)
+```
+
+
+# How many predictors
+
+```{r}
+Credit <- read_csv("Credit.csv")
+# a model matrix that includes all interactions
+X <- model.matrix(balance ~ . * . , Credit)
+# train and test set
+set.seed(987654312)
+train <-sample(1:nrow(X),nrow(X)/2)
+test <- -train
+# number of predictors
+p <- ncol(X)-1
+```
+
+Including all interactions and the main effects results in $p=`r p`$ predictors.
+
+# Selecting tunning parameters
+
+```{r}
+grid <- 10^seq(3, -1, length.out = 100)
+y <- Credit$balance
+cv_ridge <- cv.glmnet(X[train,], y[train], alpha = 0, lambda = grid, nfolds = 10)
+cv_lasso <- cv.glmnet(X[train,], y[train], alpha = 1, lambda = grid, nfolds = 10, 
+                      thresh = 1e-10)
+# best tunning parameters
+best_lambda_ridge <- cv_ridge$lambda.min
+best_lambda_lasso <- cv_lasso$lambda.min
+# number of features in lasso
+n_features <- sum(coef(cv_lasso, s = "lambda.min")[, 1] != 0) - 1
+```
+
+The best tunning parameter for the ridge regression is `r best_lambda_ridge` and the best for the lasso regression is `r best_lambda_lasso`.
+Inspecting the final model for each regression using `coef.glmnet` reveals that, as expected, the ridge regression produces a final model that contains all the predictors. 
+Contrastingly, the lasso regression produces a final model that contains only a subset of the predictors. 
+Specifically the lasso regression using the lambda that produces the minimum cross-validated error includes `r n_features` features.
