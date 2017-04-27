@@ -1,5 +1,6 @@
 ---
 title: "Assignment 2 - Part 1A"
+subtitle: "Penalized regression"
 author: "Fernando Cagua"
 output: 
   pdf_document: 
@@ -26,6 +27,9 @@ train <-sample(1:nrow(X),nrow(X)/2)
 test <- -train
 # number of predictors
 p <- ncol(X)-1
+# linear model
+y <- Credit$balance
+mod <- lm(y[train] ~ X[train, -1])
 ```
 
 Including all interactions and the main effects results in $p=`r p`$ predictors.
@@ -34,7 +38,6 @@ Including all interactions and the main effects results in $p=`r p`$ predictors.
 
 ```{r}
 grid <- 10^seq(3, -1, length.out = 100)
-y <- Credit$balance
 cv_ridge <- cv.glmnet(X[train,], y[train], alpha = 0, lambda = grid, nfolds = 10)
 cv_lasso <- cv.glmnet(X[train,], y[train], alpha = 1, lambda = grid, nfolds = 10, 
                       thresh = 1e-10)
@@ -49,3 +52,31 @@ The best tunning parameter for the ridge regression is `r best_lambda_ridge` and
 Inspecting the final model for each regression using `coef.glmnet` reveals that, as expected, the ridge regression produces a final model that contains all the predictors. 
 Contrastingly, the lasso regression produces a final model that contains only a subset of the predictors. 
 Specifically the lasso regression using the lambda that produces the minimum cross-validated error includes `r n_features` features.
+
+# Comparing test errors
+
+```{r}
+prediction <- list(
+  linear =  X[test,] %*% coef(mod),
+  ridge = predict(cv_ridge, X[test,], s = best_lambda_ridge),
+  lasso = predict(cv_lasso, X[test,], s = best_lambda_lasso)
+) %>%
+  lapply(`colnames<-`, NULL)
+test_error <- function(x) mean((x - y[test])^2)
+error <- lapply(prediction, test_error)
+```
+
+The test error for the linear model is `r error$linear`, for the ridge regression is `r error$ridge`, and for the lasso is `r error$lasso`. This indicates that using this particular test error, the lasso regression performed the best.
+
+# Comparing the predictions
+
+```{r, fig.height= 3.6}
+as.data.frame(prediction) %>%
+  mutate(actual = y[test]) %>%
+  reshape2::melt("actual", value.name = "predicted", variable.name = "method") %>%
+  ggplot(aes(x = actual, y = predicted)) +
+  geom_point(aes(fill = method), shape = 21, show.legend = F, alpha = 0.5) +
+  geom_abline(intercept = 0, slope = 1) +
+  coord_equal() +
+  facet_grid(~method)
+```
