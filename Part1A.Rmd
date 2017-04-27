@@ -10,7 +10,6 @@ output:
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE)
 library(tidyverse)
-library(modelr)
 library(glmnet)
 ```
 
@@ -38,6 +37,7 @@ Including all interactions and the main effects results in $p=`r p`$ predictors.
 
 ```{r}
 grid <- 10^seq(3, -1, length.out = 100)
+set.seed(987654312)
 cv_ridge <- cv.glmnet(X[train,], y[train], alpha = 0, lambda = grid, nfolds = 10)
 cv_lasso <- cv.glmnet(X[train,], y[train], alpha = 1, lambda = grid, nfolds = 10, 
                       thresh = 1e-10)
