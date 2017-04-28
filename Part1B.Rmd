@@ -67,4 +67,4 @@ The balance seems to increasse between ~20 to ~40 years and then decreasses slig
 
 # Comparing RMSE with response
 
-The mean RMSE of the choosen model is approximately `r round(sqrt(mean_mse$mse[1]))`. On the other hand balance ranges between `r min(Credit$balance)` and `r max(Credit$balance)` with a median of `r median(Credit$balance)`. This seems to indicate that the model is performing poorly. Being ~400 dollars off when the typical account has ~460 dollars doesn't seem like a good prediction.
+The mean RMSE of the choosen model is approximately `r round(sqrt(mean_mse$mse[1]))`. On the other hand balance ranges between `r min(Credit$balance)` and `r max(Credit$balance)` with a median of `r median(Credit$balance)`. This seems to indicate that the model is performing poorly. Being ~400 dollars off when the typical account has ~460 dollars doesn't seem like a good job.
