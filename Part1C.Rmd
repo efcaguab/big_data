@@ -1,0 +1,79 @@
+---
+title: "Assignment 2 - Part 1C"
+subtitle: "High-dimensional data"
+author: "Fernando Cagua"
+output: 
+  pdf_document: 
+    number_sections: yes
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(modelr)
+library(glmnet)
+```
+
+```{r}
+parkinsons <- read.csv("parkinsons.csv") %>% 
+  rename(patient = X) %>%
+  mutate_at(vars(contains("X")), scale)
+X <- model.matrix(UPDRS ~ ., select(parkinsons, - patient))
+y <- parkinsons$UPDRS
+set.seed(987654312)
+train <-sample(1:nrow(X),30)
+test <- -train
+```
+
+# Linear model
+
+```{r}
+linear <- lm(y[train] ~ X[train, -1])
+sum(residuals(linear))
+```
+
+The linear model has a perfect fit and it's not useful because its too complex and overfits the train data. This means that the predictive performance on the test data is likely to be extremely poor. 
+
+#  Using lasso
+
+```{r}
+grid <- 10^seq(3,-1,length.out = 100)
+lasso <- cv.glmnet(X[train, -1], y[train], alpha =1, lambda = grid, nfolds = 30, 
+                   thresh = 1e-10)
+# optimal value
+lasso$lambda.min
+# test error
+mean((predict(lasso, X[test, -1], s = lasso$lambda.min) - y[test])^2)
+```
+
+# Final model
+
+```{r}
+predictors <- coef(lasso, s = lasso$lambda.min) %>% as.matrix()
+predictors <- predictors[predictors[, 1] != 0,]
+# make it a string
+model <- paste(round(predictors,4),"*",names(predictors)) %>% 
+  paste(collapse = " + ") %>% 
+  gsub("\\* \\(Intercept\\) ", "", .)
+```
+
+The final model is $UPDRS = `r model`$. The lasso algorithm selected `r length(predictors)-1` features. X97 had indeed the largest effect. All other features are relatively unimportant and had effects that are around one order of magnitude smaller than X97.
+
+# Different random split
+
+```{r}
+set.seed(1)
+train <-sample(1:nrow(X),30)
+test <- -train
+lasso <- cv.glmnet(X[train, -1], y[train], alpha =1, lambda = grid, nfolds = 30, 
+                   thresh = 1e-10)
+predictors <- coef(lasso, s = lasso$lambda.min) %>% as.matrix()
+predictors <- predictors[predictors[, 1] != 0,]
+# make it a string
+model <- paste(round(predictors,4),"*",names(predictors)) %>% 
+  paste(collapse = " + ") %>% 
+  gsub("\\* \\(Intercept\\) ", "", .)
+```
+
+Using a different seed, now the final model is $UPDRS = `r model`$, which cointains `r length(predictors)-1` features. Four or them are in both models, however the coefficients for those predictors seem to be considerably different. 
+
