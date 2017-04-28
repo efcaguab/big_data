@@ -1,0 +1,105 @@
+---
+title: "Assignment 2 - Part 2B"
+subtitle: "Clustering"
+author: "Fernando Cagua"
+output: 
+  pdf_document: 
+    number_sections: yes
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(modelr)
+library(glmnet)
+```
+
+```{r}
+library(ISLR)
+nci.data <- t(NCI60$data)
+nci_pr <- princomp(scale(nci.data))
+```
+
+# Hierarchical clustering
+
+```{r}
+pr_data <- as.data.frame(predict(nci_pr))
+e_clust <- pr_data %>% dist() %>% hclust()
+# get clusters
+euclidean <- 3:6 %>%
+  plyr::ldply(function(x){
+    cl <- e_clust %>% cutree(x) 
+    pr_data %>% mutate(k = x, cluster = cl)
+  })
+# table of membership
+euclidean %>% group_by(k, cluster) %>% summarise(n = n()) %>%
+  reshape2::dcast(k~cluster) %>% knitr::kable()
+```
+
+The table shows the number of genes in each of the clusters (columns) for different number of clusters (rows). 
+Based on this table and the plot of the clusters  below, it is possible to infer that there is a very large cluster that contains most of the genes and some smaller ones that might be very particular to specific cell lines. 
+It is also possible to observe that indeed the clusters are nested. 
+For exampl cluster 2 and 4 in k = 6 are contained by cluster 2 in k = 5. 
+Or cluster 1 and 3 in k = 5 are contained by cluster 1 in k = 4. 
+
+```{r, fig.height=3.5}
+# plot clusterings
+euclidean %>%
+  ggplot(aes(x = Comp.1, y = Comp.2)) + 
+  geom_point(aes(fill = as.factor(cluster)), shape = 21, size = 1, alpha = 0.75, 
+             show.legend = FALSE) +
+  facet_wrap(~k)
+```
+
+# Correlation based distance
+
+```{r}
+c_clust <- nci.data %>% scale() %>% t() %>% cor() %>% as.dist() %>% hclust()
+correlation <- 3:6 %>%
+  plyr::ldply(function(x){
+    cl <- c_clust %>% cutree(x) 
+    pr_data %>% mutate(k = x, cluster = cl)
+  })
+# table of membership
+correlation %>% group_by(k, cluster) %>% summarise(n = n()) %>%
+  reshape2::dcast(k~cluster) %>% knitr::kable()
+```
+
+```{r, fig.height=3.5}
+# plot clusterings
+correlation %>%
+  ggplot(aes(x = Comp.1, y = Comp.2)) + 
+  geom_point(aes(fill = as.factor(cluster)), shape = 21, size = 1, alpha = 0.75, 
+             show.legend = FALSE) +
+  facet_wrap(~k)
+```
+
+The clusters found using the correlation-based distance are completelly different to those found using the ecuclidean distance. Not only the number of genes in each cluster is a bit more balanced but it allows to differentiate genes within the large blob of points in the PC1-2 space. 
+
+# K-means
+
+I'ts not completely clear from the assignment which matrix should be used as the input for `kmeans`. Here I assume that the matrix is the scaled gene x cell-line matrix. 
+
+```{r}
+kmeans_raw <- 3:6 %>%
+  plyr::ldply(function(x){
+    cl <- nci.data %>% scale() %>% kmeans(x) 
+    pr_data %>% mutate(k = x, cluster = cl$cluster)
+  })
+# table of membership
+kmeans_raw %>% group_by(k, cluster) %>% summarise(n = n()) %>%
+  reshape2::dcast(k~cluster) %>% knitr::kable()
+
+```
+
+```{r, fig.height=3.5}
+# plot clusterings
+kmeans_raw %>%
+  ggplot(aes(x = Comp.1, y = Comp.2)) + 
+  geom_point(aes(fill = as.factor(cluster)), shape = 21, size = 1, alpha = 0.75, 
+             show.legend = FALSE) +
+  facet_wrap(~k)
+```
+
+The k-means clustering is different to both the hierarchical clustering using euclidean distances on the principal components or correlation distances. 
+However it resembles more the one that uses euclidean distances in the sense that the clusters are distinguishable in the PC space. 
